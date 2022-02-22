@@ -1,0 +1,30 @@
+#!/bin/bash
+batterymonitor(){
+battery_stat="$(acpi --battery)"
+battery_greped_status="$(echo $battery_stat | grep -Pio 'remaining|charged')"
+battery_percentage_v="$(echo $battery_stat | grep -Po '(\d+%)' | grep -Po '\d+')"
+
+
+if [ "$battery_greped_status" == "remaining" ]; then
+        runtime="$(echo $battery_stat | grep -Po '[0-9]+:[0-9]+:[0-9]+')"
+
+        if [ "$battery_percentage_v" -ge 31 ] && [ "$battery_percentage_v" -le 40 ]; then
+                dunstify -a system -i "~/.config/dunst/myicons/battery-level-40-symbolic.symbolic.png" -t 9000 -r 9990 -u normal "Battery Running Low" "${battery_percentage_v}% Connect to Charger Please"
+
+        elif [ "$battery_percentage_v" -ge 21 ] && [ "$battery_percentage_v" -le 30 ]; then
+                dunstify -a system -i "~/.config/dunst/myicons/battery-level-20-symbolic.symbolic.png" -t 9000 -r 9990 -u normal "Low Battery: ${battery_percentage_v}%" "Connect to Charger Please"
+        fi
+
+# Remind to disconnect charger if battery >=90%
+elif [ "$battery_greped_status" == "charged" ]; then
+
+    if [ "$battery_percentage_v" -ge 90 ]; then
+        dunstify -a system -i "~/.config/dunst/myicons/battery-level-90-charging-symbolic.symbolic.png" -t 9000 -r 9990 -u normal "Battery ${battery_percentage_v}%" "Disconnect Charger Please."
+    fi
+fi
+}
+
+while true; do
+	batterymonitor
+	sleep 60
+done
