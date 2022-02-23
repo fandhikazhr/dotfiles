@@ -1,0 +1,154 @@
+#!/bin/sh
+
+MENU="/usr/local/bin/dmenu"
+
+updateicon() {
+    echo "$1" > ~/.recordingicon
+}
+
+updatestatus() {
+    echo "$1" > ~/.recordingstat
+}
+
+killRecording() {
+    recpid="$(cat ~/.recordingpid)"
+    kill -15 "$recpid"
+    rm -f ~/.recordingpid
+    rm -f ~/.recordingstat
+    updateicon ""
+    exit
+}
+
+videoAudio(){
+	ffmpeg \
+	-f x11grab \
+	-draw_mouse 1 \
+	-framerate 30 \
+	-s $1 \
+	-i :0.0+$2,$3 \
+	-f alsa -i default \
+	-vf setpts=N/FR/TB \
+    -c:v libx264 -pix_fmt yuv420p -preset veryfast -q:v 1 \
+    -threads 4 \
+    "$HOME/Videos/video-$(date '+%y%m%d-%H%M-%S').mp4" &
+    echo $! > ~/.recordingpid
+    updateicon " REC "
+    updatestatus "record"
+}
+
+    # -i $(echo $DISPLAY).0+$2,$3 \
+videoOnly() {
+    ffmpeg \
+    -f x11grab \
+    -draw_mouse 1 \
+    -framerate 30 \
+    -s $1 \
+    -i :0.0+$2,$3 \
+    -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+    -vf setpts=N/FR/TB \
+    -c:v libx264 -pix_fmt yuv420p -preset veryfast -q:v 1 \
+    -threads 4 \
+    "$HOME/Videos/video-$(date '+%y%m%d-%H%M-%S').mp4" &
+    echo $! > ~/.recordingpid
+    updateicon " REC "
+    updatestatus "record"
+}
+
+    # -i $(echo $DISPLAY).0+$2,$3 \
+videoHighOnly() {
+    ffmpeg \
+    -f x11grab \
+    -draw_mouse 1 \
+    -framerate 30 \
+    -s $1 \
+    -i :0.0+$2,$3 \
+    -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 \
+    -vf setpts=N/FR/TB \
+    -c:v libx264rgb -preset veryfast -q:v 1 \
+    -threads 4 \
+    "$HOME/Videos/video-$(date '+%y%m%d-%H%M-%S').mp4" &
+    echo $! > ~/.recordingpid
+    updateicon " REC "
+    updatestatus "record"
+}
+
+pauseRecording() {
+    pkill -STOP ffmpeg
+    updateicon " REC "
+    updatestatus "pause"
+}
+
+resumeRecording() {
+    pkill -CONT ffmpeg
+    updateicon " REC "
+    updatestatus "record"
+}
+
+asktoEnd() { \
+    response=$(printf "Pause\nNo\nYes" | $MENU -p " End Recording") &&
+    [ "$response" = "Pause" ] && pauseRecording
+    [ "$response" = "Yes" ] && killRecording
+    exit
+}
+
+asktoResume() { \
+    response=$(printf "Resume" | $MENU -p " Resume Recording") &&
+    [ "$response" = "Resume" ] && resumeRecording
+    exit
+}
+
+if [ -f ~/.recordingpid ]; then
+    if grep -q "record" ~/.recordingstat; then
+        asktoEnd
+        exit
+    elif grep -q "pause" ~/.recordingstat; then
+        asktoResume
+        exit
+    fi
+fi
+
+
+# +----------------+
+# | INTERFACE MENU |
+# +----------------+
+#
+# Don't put comma on last array element!
+# menu name         function name
+OPTIONS='''
+[
+["Video",     "videos"],
+["VideoHD",   "videoHighOnly"],
+["Presentation",  "videoAudio"]
+]
+'''
+obj_menu=$(echo $OPTIONS | jq -r ".[][0]" | $MENU -i -p " Record")
+obj_selected=$(echo $OPTIONS | jq -r ".[] | select(.[0] == \"$obj_menu\") | .[1]")
+
+if [ "$obj_selected" = "videos" ]; then
+    screen_size=$(xdpyinfo | grep dimensions | awk '{print $2;}')
+    monitors=$(xrandr --listmonitors | grep 'Monitors:' | tr -d "Monitors: ")
+
+    if [ "$monitors" = "2" ]; then
+        OPTIONS='''
+        [
+        ["All Monitor",         "videoOnly '1600x1668' '0' '0'"],
+        ["Laptop",              "videoOnly '1024x768' '576' '900'"],
+        ["Monitor",             "videoOnly '1600x900' '0' '0'"]
+        ]
+        '''
+        obj_menu=$(echo $OPTIONS | jq -r ".[][0]" | $MENU -i -p " Area")
+        obj_selected=$(echo $OPTIONS | jq -r ".[] | select(.[0] == \"$obj_menu\") | .[1]")
+    else
+        obj_selected="videoOnly $(xdpyinfo | grep dimensions | awk '{print $2;}') '0' '0'"
+    fi
+
+elif [ "$obj_selected" = "videoAudio" ]; then
+    obj_selected="videoAudio $(xdpyinfo | grep dimensions | awk '{print $2;}') '0' '0'"
+
+
+elif [ "$obj_selected" = "videoHighOnly" ]; then
+    obj_selected="videoHighOnly $(xdpyinfo | grep dimensions | awk '{print $2;}') '0' '0'"
+fi
+
+$obj_selected
+
