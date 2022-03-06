@@ -1,0 +1,7 @@
+# remove history
+alias lost='cat /dev/null > .bash_history && history -c && clear'
+alias loser='cat /dev/null > .bash_history && history -c && exit'
+# how to check whats gpu used "glxgears -info" or "lspci | grep VGA"
+# audio
+alias micon='sudo pkexec amixer set Capture cap'
+alias micof='sudo pkexec amixer set Capture nocap'
