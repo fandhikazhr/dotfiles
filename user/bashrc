@@ -1,3 +1,13 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+PS1='🕱 \[\033[1;36m\]\w\[\033[00m\] \$ '
+
 # remove history
 alias lost='cat /dev/null > .bash_history && history -c && clear'
 alias loser='cat /dev/null > .bash_history && history -c && exit'
